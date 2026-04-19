@@ -1,5 +1,10 @@
 import { defineConfig } from 'vitepress'
 
+const githubRepository = process.env.GITHUB_REPOSITORY?.split('/')[1]
+const base = process.env.GITHUB_ACTIONS && githubRepository
+  ? `/${githubRepository}/`
+  : '/'
+
 const docsSidebar = [
   {
     text: 'Getting Started',
@@ -58,6 +63,7 @@ const docsSidebar = [
 ] as const
 
 export default defineConfig({
+  base,
   title: 'Nautilus Docs',
   description: 'End-user documentation for the Nautilus schema-first ORM toolkit.',
   lastUpdated: true,
