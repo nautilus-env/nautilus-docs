@@ -15,7 +15,6 @@ datasource db {
 
 - no separate database server required
 - easiest local validation and iteration story
-- ideal for the included `playground.nautilus`
 
 ## Important SQLite Limits
 
