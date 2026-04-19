@@ -3,10 +3,10 @@ layout: false
 ---
 <script setup>
 import { onMounted } from 'vue'
-import { useRouter } from 'vitepress'
+import { useRouter, withBase } from 'vitepress'
 
 const router = useRouter()
 onMounted(() => {
-  router.go('/guide/getting-started')
+  router.go(withBase('/guide/getting-started'))
 })
 </script>
