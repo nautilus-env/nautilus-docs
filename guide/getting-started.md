@@ -27,13 +27,13 @@ cargo install nautilus-orm
 macOS or Linux:
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/y0gm4/nautilus/releases/latest/download/nautilus-orm-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/nautilus-env/nautilus/releases/latest/download/nautilus-orm-installer.sh | sh
 ```
 
 Windows:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://github.com/y0gm4/nautilus/releases/latest/download/nautilus-orm-installer.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/nautilus-env/nautilus/releases/latest/download/nautilus-orm-installer.ps1 | iex"
 ```
 
 ### Check the CLI

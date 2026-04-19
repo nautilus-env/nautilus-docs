@@ -84,10 +84,10 @@ export default defineConfig({
     ],
     sidebar: docsSidebar,
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/y0gm4/nautilus' }
+      { icon: 'github', link: 'https://github.com/nautilus-env/nautilus' }
     ],
     footer: {
-      message: 'Based on the upstream Nautilus project by y0gm4.',
+      message: 'Based on the upstream Nautilus project by nautilus-env.',
       copyright: 'Documentation target: Nautilus ORM'
     }
   }

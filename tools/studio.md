@@ -27,7 +27,7 @@ If either command is missing, `nautilus studio` fails early with an explicit run
 From the current upstream CLI implementation, `nautilus studio`:
 
 1. checks whether Node.js and npm exist
-2. looks up the latest release from [TonnoBelloSnello/nautilus-orm-studio](https://github.com/TonnoBelloSnello/nautilus-orm-studio)
+2. looks up the latest release from [nautilus-env/nautilus-orm-studio](https://github.com/nautilus-env/nautilus-orm-studio)
 3. resolves the current platform asset named `nautilus-orm-studio-${tag}-${os}.zip`
 4. extracts the release under the local Nautilus data directory
 5. installs runtime dependencies with npm if `node_modules` is missing
