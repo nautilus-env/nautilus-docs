@@ -42,8 +42,10 @@ Current options:
 Important behavior:
 
 - `db push` diffs the live database against the validated schema
+- on PostgreSQL, declared datasource `extensions` are created before type, table, and index DDL
 - destructive changes may require confirmation unless you pass `--accept-data-loss`
 - successful pushes regenerate the client unless `--no-generate` is used
+- extra live PostgreSQL extensions are treated as destructive drops unless the datasource sets `preserve_extensions = true`
 
 ## `db status`
 
@@ -89,6 +91,12 @@ Current options:
 | `--output <OUTPUT>` | Output path, default `pulled.nautilus` |
 | `--model-case <auto\|snake\|pascal>` | Naming mode for generated model names |
 | `--field-case <auto\|snake\|pascal>` | Naming mode for generated field names |
+
+PostgreSQL-specific behavior:
+
+- installed extensions are serialized into datasource `extensions`
+- extensions installed outside `public` are rendered with `extension(name = ..., schema = "...")`
+- `citext`, `hstore`, `ltree`, PostGIS, and pgvector columns are mapped back to `Citext`, `Hstore`, `Ltree`, `Geometry`, `Geography`, and `Vector(N)` when possible
 
 
 ## `db drop`

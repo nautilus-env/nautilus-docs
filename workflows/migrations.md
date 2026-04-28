@@ -114,6 +114,8 @@ That means migration status is not inferred purely from files on disk. Nautilus 
 Migration SQL remains provider-aware:
 
 - PostgreSQL supports the richest index and native-type surface
+- PostgreSQL migrations create declared datasource `extensions` before enum, composite type, table, and index DDL
+- PostgreSQL extension diffs are declarative unless `preserve_extensions = true`
 - MySQL and SQLite have different DDL constraints
 - SQLite may rebuild tables for changes that other providers handle with `ALTER TABLE`
 

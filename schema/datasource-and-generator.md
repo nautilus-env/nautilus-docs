@@ -16,14 +16,18 @@ The `datasource` block describes where Nautilus should connect. The `generator` 
 | Field | Meaning |
 | --- | --- |
 | `direct_url` | Optional direct connection string, accepted by the validator and preserved in schema IR |
+| `extensions` | PostgreSQL-only extension list to manage with database workflows |
+| `preserve_extensions` | PostgreSQL-only boolean that keeps live extensions not declared in the schema |
 
 ### Datasource example: PostgreSQL
 
 ```prisma
 datasource db {
-  provider   = "postgresql"
-  url        = env("DATABASE_URL")
-  direct_url = env("DIRECT_DATABASE_URL")
+  provider            = "postgresql"
+  url                 = env("DATABASE_URL")
+  direct_url          = env("DIRECT_DATABASE_URL")
+  extensions          = [citext, hstore, ltree, postgis, vector, "uuid-ossp"]
+  preserve_extensions = true
 }
 ```
 
@@ -60,6 +64,43 @@ Invalid:
 ```prisma
 url = env("DATABASE_URL", 1)
 ```
+
+## PostgreSQL Extensions
+
+`extensions` is a declarative PostgreSQL-only datasource field. Nautilus emits `CREATE EXTENSION IF NOT EXISTS` before enum, composite type, table, and index DDL. `db pull` also serializes installed extensions back into the datasource block.
+
+Entries can be bare identifiers, string literals, or structured entries with a target schema:
+
+```prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+
+  extensions = [
+    citext,
+    pg_trgm,
+    "uuid-ossp",
+    extension(name = vector, schema = "extensions"),
+  ]
+}
+```
+
+Nautilus knows these extension names: `btree_gin`, `btree_gist`, `citext`, `hstore`, `intarray`, `ltree`, `pgcrypto`, `pg_trgm`, `postgis`, `unaccent`, `uuid-ossp`, and `vector`. Unknown names validate with a warning, so custom extensions can still be installed.
+
+Extension-backed field types are PostgreSQL-only. When the matching extension is declared, generated clients emit typed wrapper scalars for these fields:
+
+| Schema type | Extension | Notes |
+| --- | --- | --- |
+| `Citext` | `citext` | Case-insensitive text with a generated `Citext` wrapper and string-style filters |
+| `Hstore` | `hstore` | Key/value map with optional string values and a generated `Hstore` wrapper |
+| `Ltree` | `ltree` | PostgreSQL label-tree path with a generated `Ltree` wrapper and string-style filters |
+| `Geometry` | `postgis` | PostGIS `GEOMETRY`, exposed as a generated `Geometry` wrapper over WKT/EWKT/EWKB text |
+| `Geography` | `postgis` | PostGIS `GEOGRAPHY`, exposed as a generated `Geography` wrapper over WKT/EWKT/EWKB text |
+| `Vector(dim)` | `vector` | pgvector dense embedding with a generated `Vector` wrapper and a required positive dimension |
+
+If you use one of these types without the matching extension, validation still succeeds but reports a warning such as `extensions = [postgis]`.
+
+By default extension management is declarative: an extension present in the live database but absent from the schema appears as a destructive drop in `db status` / `db push`. Drops are generated without `CASCADE`, so PostgreSQL rejects them if dependent objects still exist. Set `preserve_extensions = true` when another tool or platform owns extra live extensions.
 
 ## Generator
 

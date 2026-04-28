@@ -91,6 +91,7 @@ Usage: nautilus db seed [OPTIONS] <FILE>
 ## Practical Advice
 
 - use `db status` before risky pushes
+- on PostgreSQL, review extension diffs carefully; undeclared live extensions are destructive drops unless `preserve_extensions = true`
 - reserve `db drop` and `db reset` for deliberate cleanup
 - use `db pull` when adopting Nautilus against an existing database
 - use `db seed` only for raw SQL seeding, not schema definition

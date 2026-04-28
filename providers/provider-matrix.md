@@ -46,6 +46,12 @@ datasource db {
 | `Gist` index | yes | no | no |
 | `Brin` index | yes | no | no |
 | `FullText` index | no | yes | no |
+| Datasource `extensions` | yes | no | no |
+| `Citext`, `Hstore`, `Ltree` | yes, with matching extension | no | no |
+| PostGIS `Geometry` / `Geography` | yes, with `postgis` | no | no |
+| pgvector `Vector(N)` | yes, with `vector` | no | no |
+| pgvector `Hnsw` / `Ivfflat` index | yes | no | no |
+| pgvector nearest-neighbor query | yes | no | no |
 | Arrays/composites via `@store(json)` | yes | yes | yes |
 | Fastest zero-setup local loop | no | no | yes |
 
@@ -56,6 +62,7 @@ datasource db {
 | Quoting style | `"name"` | `` `name` `` | `"name"` |
 | Returning behavior | native `RETURNING` | omitted / emulated | `RETURNING` on supported versions |
 | Richest index support | highest | medium | lowest |
+| Extension diffing | declared extensions are created; extra live extensions may be dropped unless `preserve_extensions = true` | not supported | not supported |
 | Alter table flexibility | high | medium | lowest |
 | Some complex diffs may rebuild tables | less often | sometimes | more often |
 

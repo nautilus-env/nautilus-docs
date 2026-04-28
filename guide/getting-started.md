@@ -13,7 +13,7 @@ pip install nautilus-orm
 ### JavaScript / TypeScript
 
 ```bash
-npm install @y0gm4/nautilus-orm
+npm install @nautilus-env/nautilus-orm
 ```
 
 ### Rust

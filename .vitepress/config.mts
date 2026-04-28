@@ -31,7 +31,11 @@ const docsSidebar = [
   {
     text: 'Generated Clients',
     items: [
-      { text: 'Overview', link: '/clients/' }
+      { text: 'Overview', link: '/clients/' },
+      { text: 'Query API', link: '/clients/query-api' },
+      { text: 'Transactions', link: '/clients/transactions' },
+      { text: 'PostgreSQL Extension Types', link: '/clients/extensions' },
+      { text: 'Language-Specific Notes', link: '/clients/language-notes' },
     ]
   },
   {

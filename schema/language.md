@@ -97,9 +97,34 @@ Nautilus supports:
 - scalar types such as `String`, `Boolean`, `Int`, `BigInt`, `Float`, `DateTime`, `Bytes`, `Json`, `Jsonb`, `Uuid`, `Xml`
 - bounded strings such as `Char(2)` and `VarChar(255)`
 - `Decimal(precision, scale)`
+- PostgreSQL extension-backed scalars such as `Citext`, `Hstore`, `Ltree`, `Geometry`, `Geography`, and `Vector(dim)`
 - user-defined enums
 - user-defined models
 - user-defined composite types
+
+### PostgreSQL extension-backed types
+
+Extension-backed scalars are valid only with `provider = "postgresql"`. Declare the matching extension in the datasource so `db push` and migrations can install it before table and index DDL:
+
+```prisma
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [citext, hstore, ltree, postgis, vector]
+}
+
+model Place {
+  id        Int        @id @default(autoincrement())
+  slug      Citext     @unique
+  labels    Hstore?
+  path      Ltree?
+  footprint Geometry?
+  location  Geography?
+  embedding Vector(1536)
+}
+```
+
+When the matching extension is declared, generated clients emit `Citext`, `Hstore`, `Ltree`, `Geometry`, `Geography`, and `Vector` wrapper types for these fields. PostGIS wrappers still serialize WKT, EWKT, or EWKB text on the wire, and `Vector(dim)` requires a positive dimension for pgvector nearest-neighbor queries.
 
 ## Field Modifiers
 
