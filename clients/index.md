@@ -209,5 +209,5 @@ public final class App {
 
 - [Query API](/clients/query-api) — all query methods: find, create, update, delete, upsert, aggregations, and raw SQL
 - [Transactions](/clients/transactions) — wrapping multiple operations in a single atomic unit
-- [PostgreSQL Extension Types](/clients/extensions) — citext, hstore, ltree, PostGIS, and pgvector in generated clients
+- [PostgreSQL Extension Types](/clients/extensions) — citext, hstore, ltree, PostGIS, pgvector, and richer extension input helpers
 - [Language-Specific Notes](/clients/language-notes) — Python, JavaScript / TypeScript, Rust, and Java specifics
