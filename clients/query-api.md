@@ -9,6 +9,8 @@ These examples assume a schema similar to the `User`, `Profile`, `Order`, and `O
 | Category | Python | JavaScript / TypeScript | Rust | Java |
 | --- | --- | --- | --- | --- |
 | Reads | `find_many`, `find_first`, `find_unique`, `find_first_or_throw`, `find_unique_or_throw` | `findMany`, `findFirst`, `findUnique`, `findFirstOrThrow`, `findUniqueOrThrow` | `find_many`, `find_first`, `find_unique`, `find_first_or_throw`, `find_unique_or_throw` | `findMany`, `findFirst`, `findUnique`, `findFirstOrThrow`, `findUniqueOrThrow` |
+| Streaming reads | `stream_many` on async clients | `streamMany` | `stream_many` on async clients | `streamMany` |
+| Scalar projections | `select=...` returns `*Projection` objects | `select` narrows the returned object type | `find_many_select`, `find_first_select`, `find_unique_select` | `findManySelect`, `findFirstSelect`, `findUniqueSelect`, `streamManySelect` |
 | Writes | `create`, `create_many`, `update`, `delete`, `delete_many`, `upsert` | `create`, `createMany`, `update`, `delete`, `deleteMany`, `upsert` | `create`, `create_many`, `update`, `delete`, `delete_many`, `upsert` | `create`, `createMany`, `update`, `delete`, `deleteMany`, `upsert` |
 | Aggregation | `count`, `group_by` | `count`, `groupBy` | `count`, `group_by` | `count`, `groupBy` |
 | Raw SQL | `raw_query`, `raw_stmt_query` | `rawQuery`, `rawStmtQuery` | `raw_query`, `raw_stmt_query` | `rawQuery`, `rawStmtQuery` |
@@ -17,8 +19,13 @@ General rules:
 
 - use logical schema field names, not raw database column names from `@map`
 - `select` and `include` are mutually exclusive
+- Python, JavaScript / TypeScript, and Java projection payloads include requested scalar fields plus primary-key fields
+- Rust typed projections return the exact column tuple passed to the projection method
+- Python and JavaScript / TypeScript accept `select` on normal read and streaming methods
+- Rust and Java keep full-model reads separate from projection reads; use the dedicated projection methods instead of passing `select` to model-returning methods
 - `cursor` must contain all primary-key fields for the target model
 - `chunk_size` / `chunkSize` is exposed in Python, JS, and Java; the current Rust client supports cursor pagination but not chunk-size tuning
+- streaming reads are intended for forward scans and exports; use buffered reads for backward pagination or relation-heavy include graphs
 - the Rust generated client currently routes `include`, `count`, and `group_by` through the embedded engine path
 - some mutation return types differ by language: Python and JS can switch between rows and counts on some methods, while Rust and Java use fixed return shapes
 
@@ -287,6 +294,151 @@ List<Order> previousPage = client.order().findMany(q -> q
 
 `find_many` / `findMany` also accepts `distinct`. On PostgreSQL this maps to `DISTINCT ON (...)`; on SQLite and MySQL it becomes plain `SELECT DISTINCT`, so it is most predictable when paired with a narrow projection.
 
+## Buffered vs Streaming Reads
+
+Use `find_many` / `findMany` when you want the final collection in memory and the result set is small or medium. Use `stream_many` / `streamMany` for large forward scans, exports, or row-by-row processing where lower time-to-first-row and bounded client memory matter more.
+
+Streaming keeps a database connection busy until consumption finishes. Close Java streams early with try-with-resources, and drop Rust streams when you stop consuming.
+
+::: code-group
+
+```python [Python]
+from typing import AsyncIterator
+
+from db.models import User
+
+users: AsyncIterator[User] = client.user.stream_many(
+    where={"role": "ADMIN"},
+    order_by={"id": "asc"},
+    chunk_size=256,
+)
+
+async for user in users:
+    print(user.email)
+```
+
+```typescript [JavaScript / TypeScript]
+import type { UserModel } from './db/models/user.js';
+
+const users: AsyncIterable<UserModel> = client.user.streamMany({
+  where: { role: 'ADMIN' },
+  orderBy: [{ id: 'asc' }],
+  chunkSize: 256,
+});
+
+for await (const user of users) {
+  console.log(user.email);
+}
+```
+
+```rust [Rust]
+use db::{Role, User};
+use futures::TryStreamExt;
+use nautilus_core::FindManyArgs;
+
+let mut users = User::nautilus(&client).stream_many(FindManyArgs {
+    where_: Some(User::role().eq(Role::Admin)),
+    order_by: vec![User::id().asc()],
+    ..Default::default()
+})?;
+
+// `users` implements `Stream<Item = nautilus_core::Result<User>>`.
+while let Some(user) = users.try_next().await? {
+    println!("{}", user.email);
+}
+```
+
+```java [Java]
+import com.example.db.dsl.SortOrder;
+import com.example.db.enums.Role;
+import com.example.db.model.User;
+import java.util.stream.Stream;
+
+Stream<User> users = client.user().streamMany(q -> q
+    .where(w -> w.role(Role.ADMIN))
+    .orderBy(o -> o.id(SortOrder.ASC))
+    .chunkSize(256)
+);
+
+try (users) {
+    users.forEach(user -> System.out.println(user.email()));
+}
+```
+
+:::
+
+## Scalar Projections
+
+Use scalar projections when the caller only needs a subset of fields. Python and JavaScript / TypeScript use `select` on the normal read APIs. Rust uses typed column tuples through `find_many_select`, `find_first_select`, and `find_unique_select`. Java returns generated `*Projection` objects through `findManySelect`, `findFirstSelect`, `findUniqueSelect`, and `streamManySelect`.
+
+For Python, JavaScript / TypeScript, and Java `select` payloads, primary-key fields are always available in projection results. Rust typed projections return the exact column tuple you pass, so include the key columns you need. In Java, generated projection classes expose `hasField()` helpers so you can distinguish omitted fields from nullable fields.
+
+::: code-group
+
+```python [Python]
+summaries = await client.user.find_many(
+    where={"role": "ADMIN"},
+    order_by={"createdAt": "desc"},
+    select={"id": True, "email": True, "name": True},
+)
+
+for user in summaries:
+    print(user.email)
+```
+
+```typescript [JavaScript / TypeScript]
+const summaries = await client.user.findMany({
+  where: { role: 'ADMIN' },
+  orderBy: [{ createdAt: 'desc' }],
+  select: { id: true, email: true, name: true },
+});
+
+for (const user of summaries) {
+  console.log(user.email);
+}
+```
+
+```rust [Rust]
+use db::{Role, User};
+use nautilus_core::FindManyArgs;
+
+let summaries = User::nautilus(&client)
+    .find_many_select(
+        FindManyArgs {
+            where_: Some(User::role().eq(Role::Admin)),
+            order_by: vec![User::id().desc()],
+            ..Default::default()
+        },
+        |u| (u.id(), u.email(), u.name()),
+    )
+    .await?;
+
+for (id, email, name) in summaries {
+    println!("{id}: {email} ({name})");
+}
+```
+
+```java [Java]
+import com.example.db.dsl.SortOrder;
+import com.example.db.enums.Role;
+import com.example.db.model.UserProjection;
+import java.util.List;
+
+List<UserProjection> summaries = client.user().findManySelect(q -> q
+    .where(w -> w.role(Role.ADMIN))
+    .orderBy(o -> o.id(SortOrder.DESC))
+    .select(s -> s.id().email().name())
+).join();
+
+for (UserProjection user : summaries) {
+    if (user.hasEmail()) {
+        System.out.println(user.email());
+    }
+}
+```
+
+:::
+
 ## `find_first` / `findFirst`
 
 Use `find_first` / `findFirst` when you want the first row after filtering:
@@ -304,12 +456,6 @@ latest_confirmed_order = await client.order.find_first(
 const latestConfirmedOrder = await client.order.findFirst({
   where: { status: 'CONFIRMED' },
   orderBy: [{ createdAt: 'desc' }],
-  select: {
-    id: true,
-    status: true,
-    totalAmount: true,
-    createdAt: true,
-  },
 });
 ```
 
@@ -332,7 +478,6 @@ import com.example.db.model.Order;
 
 Order latestConfirmedOrder = client.order().findFirst(q -> q
     .where(w -> w.status(OrderStatus.CONFIRMED))
-    .select(s -> s.id().status().totalAmount())
 ).join();
 ```
 
@@ -345,9 +490,8 @@ Use a unique field or primary key in `where`:
 ::: code-group
 
 ```python [Python]
-user_summary = await client.user.find_unique(
+user = await client.user.find_unique(
     where={"email": "alice@example.com"},
-    select={"id": True, "email": True, "role": True},
 )
 ```
 
@@ -369,15 +513,6 @@ const user = await client.user.findUnique({
 use db::{Order, OrderStatus, User};
 use nautilus_core::{FindUniqueArgs, IncludeRelation};
 
-let user_summary = User::nautilus(&client)
-    .find_unique(
-        FindUniqueArgs::new(User::email().eq("alice@example.com"))
-            .with_select("id")
-            .with_select("email")
-            .with_select("role"),
-    )
-    .await?;
-
 let user = User::nautilus(&client)
     .find_unique(
         FindUniqueArgs::new(User::email().eq("alice@example.com"))
@@ -395,9 +530,8 @@ let user = User::nautilus(&client)
 import com.example.db.enums.OrderStatus;
 import com.example.db.model.User;
 
-User userSummary = client.user().findUnique(q -> q
+User userByEmail = client.user().findUnique(q -> q
     .where(w -> w.email("alice@example.com"))
-    .select(s -> s.id().email().role())
 ).join();
 
 User user = client.user().findUnique(q -> q

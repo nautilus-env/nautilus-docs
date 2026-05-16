@@ -2,6 +2,8 @@
 
 Nautilus generates local client artifacts from your schema. These outputs are designed to be used directly by your application, not published as registry packages.
 
+Generated model and projection fields include compact docs derived from schema modifiers such as `@id`, `@unique`, `@default`, `@map`, `@updatedAt`, `@computed`, and `@check`.
+
 ## Generator Block
 
 ::: code-group
@@ -51,6 +53,7 @@ generator client {
 
 - a local Python package in the configured `output` directory
 - generated model types
+- projection objects returned by `select`
 - delegate methods for model operations
 - runtime glue for talking to the Nautilus engine
 
@@ -61,6 +64,7 @@ The normal workflow is to import the generated output directly. The package root
 - JavaScript runtime files
 - `.d.ts` type declarations
 - model delegates and runtime helpers
+- typed `select` overloads and `streamMany` async iterables
 
 The normal consumption path is to import from the generated `index.js` entry point in the configured `output` directory.
 
@@ -79,6 +83,8 @@ nautilus generate --schema schema.nautilus --standalone
 ```
 
 `--standalone` is meaningful only for the Rust target.
+
+Generated Rust delegates also include typed column accessors for scalar projections and `stream_many` on async clients.
 
 ### Java
 
@@ -102,6 +108,8 @@ Use this when:
 
 - you want plain `javac` / `java` usage
 - you want a self-contained bundle outside Maven or Gradle
+
+Generated Java clients include `*Projection` classes for selected scalar fields and `streamMany` methods for pull-based reads.
 
 ## Typical Usage
 
@@ -200,6 +208,112 @@ public final class App {
             System.out.println(user.email());
         }
     }
+}
+```
+
+:::
+
+## Projection And Streaming Examples
+
+The generated clients expose the same recent read features in language-native shapes. Python and JavaScript / TypeScript use `select` directly on read methods. Rust uses typed column accessors for projection methods. Java uses generated `*Projection` classes.
+
+::: code-group
+
+```python [Python]
+from typing import AsyncIterator
+
+from db.models import UserProjection
+
+summaries = await client.user.find_many(
+    where={"role": "ADMIN"},
+    order_by={"id": "asc"},
+    select={"id": True, "email": True},
+)
+
+user_stream: AsyncIterator[UserProjection] = client.user.stream_many(
+    where={"role": "ADMIN"},
+    order_by={"id": "asc"},
+    select={"id": True, "email": True},
+    chunk_size=256,
+)
+
+async for user in user_stream:
+    print(user.email)
+```
+
+```typescript [JavaScript / TypeScript]
+import type { UserModel } from './db/models/user.js';
+
+type UserSummary = Pick<UserModel, 'id' | 'email'>;
+
+const summaries = await client.user.findMany({
+  where: { role: 'ADMIN' },
+  orderBy: [{ id: 'asc' }],
+  select: { id: true, email: true },
+});
+
+const userStream: AsyncIterable<UserSummary> = client.user.streamMany({
+  where: { role: 'ADMIN' },
+  orderBy: [{ id: 'asc' }],
+  select: { id: true, email: true },
+  chunkSize: 256,
+});
+
+for await (const user of userStream) {
+  console.log(user.email);
+}
+```
+
+```rust [Rust]
+use db::{Role, User};
+use futures::TryStreamExt;
+use nautilus_core::FindManyArgs;
+
+let summaries = User::nautilus(&client)
+    .find_many_select(
+        FindManyArgs {
+            where_: Some(User::role().eq(Role::Admin)),
+            order_by: vec![User::id().asc()],
+            ..Default::default()
+        },
+        |u| (u.id(), u.email()),
+    )
+    .await?;
+
+let mut users = User::nautilus(&client).stream_many(FindManyArgs {
+    where_: Some(User::role().eq(Role::Admin)),
+    order_by: vec![User::id().asc()],
+    ..Default::default()
+})?;
+
+// `users` implements `Stream<Item = nautilus_core::Result<User>>`.
+while let Some(user) = users.try_next().await? {
+    println!("{}", user.email);
+}
+```
+
+```java [Java]
+import com.example.db.dsl.SortOrder;
+import com.example.db.enums.Role;
+import com.example.db.model.UserProjection;
+import java.util.List;
+import java.util.stream.Stream;
+
+List<UserProjection> summaries = client.user().findManySelect(q -> q
+    .where(w -> w.role(Role.ADMIN))
+    .orderBy(o -> o.id(SortOrder.ASC))
+    .select(s -> s.id().email())
+).join();
+
+Stream<UserProjection> userStream = client.user().streamManySelect(q -> q
+    .where(w -> w.role(Role.ADMIN))
+    .orderBy(o -> o.id(SortOrder.ASC))
+    .select(s -> s.id().email())
+    .chunkSize(256)
+);
+
+try (userStream) {
+    userStream.forEach(user -> System.out.println(user.email()));
 }
 ```
 

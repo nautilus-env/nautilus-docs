@@ -155,6 +155,8 @@ Python and JavaScript can now mix raw builder objects and wrapper instances free
 
 Python and JavaScript now serialize extension inputs consistently in `where` objects and `nearest.query`, so object-shaped builder inputs work there too.
 
+For Rust and Java, scalar projections use the dedicated projection APIs introduced with the latest generated clients.
+
 ::: code-group
 
 ```python [Python]
@@ -205,26 +207,22 @@ use db::{
 use nautilus_core::{FindManyArgs, VectorMetric, VectorNearest};
 
 let parks = Place::nautilus(&client)
-    .find_many(FindManyArgs {
-        where_: Some(
-            Place::slug()
-                .contains("park")
-                .and(Place::path().starts_with("parks.usa"))
-                .and(Place::location().eq(Geography::point_with_srid(
-                    -73.9654,
-                    40.7829,
-                    4326,
-                ))),
-        ),
-        select: [
-            ("id".to_string(), true),
-            ("slug".to_string(), true),
-            ("location".to_string(), true),
-        ]
-        .into_iter()
-        .collect(),
-        ..Default::default()
-    })
+    .find_many_select(
+        FindManyArgs {
+            where_: Some(
+                Place::slug()
+                    .contains("park")
+                    .and(Place::path().starts_with("parks.usa"))
+                    .and(Place::location().eq(Geography::point_with_srid(
+                        -73.9654,
+                        40.7829,
+                        4326,
+                    ))),
+            ),
+            ..Default::default()
+        },
+        |p| (p.id(), p.slug(), p.location()),
+    )
     .await?;
 
 let nearby = Place::nautilus(&client)
@@ -245,9 +243,10 @@ import com.example.db.dsl.PlaceDsl;
 import com.example.db.extensions.postgis.types.Geography;
 import com.example.db.extensions.vector.types.Vector;
 import com.example.db.model.Place;
+import com.example.db.model.PlaceProjection;
 import java.util.List;
 
-List<Place> parks = client.place().findMany(q -> q
+List<PlaceProjection> parks = client.place().findManySelect(q -> q
     .where(w -> w
         .slugContains("park")
         .pathStartsWith("parks.usa")

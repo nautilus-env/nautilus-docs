@@ -43,6 +43,14 @@ The current generated Python templates import `typing.NotRequired` directly from
 
 The current generated Python client exposes `chunk_size` on `find_many` and forwards it to the engine as protocol-level `chunkSize`.
 
+### Streaming reads
+
+Async Python clients expose `stream_many(...) -> AsyncIterator[...]` for large forward scans. It accepts the same filter, order, cursor, distinct, and `select` shape as `find_many`, plus `chunk_size`.
+
+### Projections
+
+Passing `select={...}` to `find_many`, `stream_many`, `find_first`, or `find_unique` returns generated `*Projection` values instead of full Pydantic model instances. Primary-key fields are included automatically.
+
 ### Sync vs Async
 
 If you use `interface = "sync"`, the client surface becomes synchronous instead of async.
@@ -69,9 +77,15 @@ Nautilus writes `.d.ts` declarations so the generated package is usable in both 
 
 The current generated JS client exposes `chunkSize` on `findMany` and forwards it to the engine at the protocol level.
 
+### `streamMany`
+
+Generated JavaScript / TypeScript clients expose `streamMany(...)` as an async iterable. Use it with `for await ... of` when you want row-by-row processing instead of one final array.
+
 ### Select and include
 
 The generated types reflect logical field names from your schema, including mapped fields. That means `select` and `include` shapes are schema-aware rather than raw database-column-driven.
+
+When `select` is present, TypeScript narrows the return type to the selected scalar fields plus the primary key fields.
 
 ### Local install behavior
 
@@ -88,6 +102,8 @@ When you keep the default install step, Nautilus can also copy the generated fil
 - the generated Rust API is schema-aware rather than raw-SQL-first
 - Rust generation can emit bare sources for embedding into an existing workspace
 - `--no-install` skips the target-specific local install behavior if you only want files written to disk
+- async Rust clients expose `stream_many` for large forward scans
+- scalar projections use `find_many_select`, `find_first_select`, and `find_unique_select` with generated typed column accessors
 
 If you want the low-level runtime building blocks instead of generated sources, the upstream workspace also exposes dedicated crates, but that is outside the main end-user scope of this site.
 
@@ -112,3 +128,5 @@ java -cp ".:db/dist/nautilus-client.jar:db/dist/lib/*" Main
 - the generated Java runtime loads dotenv data before spawning the engine
 - `install = true` is currently ignored for Java in the upstream runtime notes
 - `mode = "jar"` is the best fit when you want the most explicit local output story
+- `streamMany` returns a `Stream<Model>`; close it with try-with-resources when you may stop early
+- scalar projections use `findManySelect`, `findFirstSelect`, `findUniqueSelect`, and `streamManySelect`, returning generated `*Projection` classes with `hasField()` helpers
